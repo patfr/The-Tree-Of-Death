@@ -14,7 +14,7 @@ let modInfo = {
 }
 
 let VERSION = {
-	num: "0.003",
+	num: "0.003.1",
 	name: "Mutations",
 }
 
@@ -36,9 +36,10 @@ let changelog = `<h1>Changelog:</h1><br><br>
 	- <span style='color:lime'>B</span> will be small updates.<br>
 	- <span style='color:blue'>C</span> will be bug fixes.<br>
 	<br><br><br>
-	${VersionText("v0.003", ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
-	${VersionText("v0.002", ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
-	${VersionText("v0.001", ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
+	${VersionText("v0.003.1", ["Changed Rad upgrades into a buyable instead", "Fixed milestone incorrect description", "Added more formula information", "Changed Uranium upgrade IX", "Changed 4th row of achievements to only show when you unlock Rads", "Rebalanced the game after the changes to IX"])}
+	${VersionText("v0.003",   ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
+	${VersionText("v0.002",   ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
+	${VersionText("v0.001",   ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
 `
 
 let winText = `Congratulations! You have reached the end and beaten this game, but for now...`
@@ -58,7 +59,7 @@ function getPointGen() {
 		return new Decimal(0)
 
 	let gain = new Decimal(0.1)
-	gain = gain.add(player.r.upgrades.length)
+	gain = gain.add(getBuyableAmount("r", 11))
 	if (hasUpgrade("u", 11)) gain = gain.mul(upgradeEffect("u", 11))
 	if (hasUpgrade("u", 14)) gain = gain.mul(upgradeEffect("u", 14))
 	if (hasUpgrade("u", 25)) gain = gain.pow(upgradeEffect("u", 25))
