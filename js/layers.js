@@ -415,7 +415,7 @@ addLayer("r", {
 		2: {
 			requirementDescription: "25 Rads resets (3)",
 			effectDescription: "Gain 1 Rads resets per second.",
-			done() { return player.r.times >= 20 },
+			done() { return player.r.times >= 25 },
 		},
 		3: {
 			requirementDescription: "50 Rads resets (4)",
