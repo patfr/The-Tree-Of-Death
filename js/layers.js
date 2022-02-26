@@ -1,9 +1,43 @@
 const Achievement = (n, d, t = "", u = true, s = "0px") => { return { name: n, done: d, tooltip: t, unlocked: u, style() { return { "border-radius": s, } } } }
 const AchievementUnlocked = (id) => tmp.a.achievements[id].unlocked
+const RadUpgrade = (n, u = true, s = "0px") => { return { title: `Rad ${n}`, description: " Add 1 to the base Death Points gain.", cost() { return new Decimal(1) }, unlocked: u, style() { return { "border-radius": s, } }} }
+/* Credits to pg132 for this function */
+const getLogisticTimeConstant = function(current, gain, loss) {
+	if (current.eq(gain.div(loss))) return Infinity
+	if (current.gt(gain.div(loss))) return current.times(loss).sub(gain).ln().div(-1).div(loss)
+	return current.times(loss).sub(gain).times(-1).ln().div(-1).div(loss)
+}
+
+/* Credits to pg132 for this function */
+const getLogisticAmount = function(current, gain, loss, diff) {
+	if (current.eq(gain.div(loss))) return current
+	if (gain.gte("ee10")) return gain.div(loss)
+	if (current.lt(gain.div(loss))) {
+			c = getLogisticTimeConstant(current, gain, loss)
+			
+			val1 = c.plus(diff) // t+c
+			val2 = val1.times(-1).times(loss) // -B(t+c)
+			val3 = Decimal.exp(val2) // this should be A-Bx
+			val4 = gain.sub(val3) // should be A-(A-Bx) = Bx
+			val5 = val4.div(loss) // should be x
+
+			return val5.max(0)
+	} else {
+			c = getLogisticTimeConstant(current, gain, loss)
+			
+			val1 = c.plus(diff) // t+c
+			val2 = val1.times(-1).times(loss) // -B(t+c)
+			val3 = Decimal.exp(val2) // this should be Bx-A
+			val4 = gain.plus(val3) // should be (Bx-A)+A
+			val5 = val4.div(loss) // should be x
+
+			return val5.max(0)
+	}
+}
 
 addLayer("u", {
     name: "Uranium",
-    symbol: "U",
+    symbol: "Ur",
     position: 0,
     startData() { return {
         unlocked: true,
@@ -25,9 +59,11 @@ addLayer("u", {
 		if (hasUpgrade("u", 23)) cap += upgradeEffect("u", 23)
 		if (hasUpgrade("u", 24)) cap += upgradeEffect("u", 24)
 		let base = player.points.add(1).ln().min(cap)
+		if (hasMilestone("r", 1)) base = base.add(Math.floor(player.r.times / 5))
 		if (hasUpgrade("u", 13)) base = base.mul(upgradeEffect("u", 13))
 		if (hasUpgrade("u", 21)) base = base.mul(upgradeEffect("u", 21))
 		if (hasUpgrade("u", 22)) base = base.mul(upgradeEffect("u", 22))
+		if (hasUpgrade("u", 34)) base = base.pow(upgradeEffect("u", 34))
 		return base
 	},
 	getLossRate() {
@@ -36,13 +72,8 @@ addLayer("u", {
 		return base.max(0)
 	},
 	update(delta) {
-		let gain = this.getResetGain().mul(delta)
-		if (gain.gte(0)) {
-			player.u.points = player.u.points.add(gain)
-			player.u.best = player.u.best.max(player.u.points)
-			player.u.total = player.u.total.add(gain)
-		}
-		player.u.points = player.u.points.sub(player.u.points.mul(this.getLossRate()).mul(delta).max(0)).max(0)
+		player.u.best = player.u.best.max(player.u.points)
+		player.u.points = getLogisticAmount(player.u.points, tmp.u.getResetGain, tmp.u.getLossRate, delta)
 	},
 	tabFormat: {
 		Upgrades: {
@@ -62,12 +93,23 @@ addLayer("u", {
 				"upgrades",
 			],
 		},
+		Info: {
+			content: [
+				() => ["raw-html",
+					`<h2>Information:</h2><br><br><h3>Initial base gain:</h3> min(ln([Death Points] + 1), 4)`
+				],
+			],
+		},
 	},
 	upgrades: {
 		11: {
 			title: "Uranium I",
 			description: "ln([Best Uranium]) multiplies Death Point gain.",
-			effect() { return player.u.best.max(0.1).ln() },
+			effect() {
+				let eff = player.u.best.max(0.1).ln()
+				if (hasUpgrade("u", 33)) eff = eff.mul(upgradeEffect("u", 31))
+				return eff
+			},
 			effectDisplay() { return format(this.effect()) },
 			cost() { return new Decimal(5) },
 			style() {
@@ -145,6 +187,7 @@ addLayer("u", {
 				let s = {}
 				s["border-radius"] = "0 0 10px 10px"
 				if (tmp.u.upgrades["22"].unlocked) s["border-radius"] = "0 0 0 10px"
+				if (tmp.u.upgrades["35"].unlocked) s["border-radius"] = "0"
 				return s
 			},
 			unlocked() { return hasUpgrade("u", 15) },
@@ -178,7 +221,7 @@ addLayer("u", {
 		24: {
 			title: "Uranium IX",
 			description: "Make Uranium base hardcap start even later.",
-			cost() { return new Decimal(12597) },
+			cost() { return new Decimal(12595) },
 			effect() { return new Decimal(10) },
 			style() {
 				let s = {}
@@ -190,19 +233,212 @@ addLayer("u", {
 		},
 		25: {
 			title: "Uranium X",
-			description: "Raise Death Point gain by ^2",
-			cost() { return new Decimal(1.65e4) },
+			description: "Raise Death Point gain by ^2.",
+			cost() { return new Decimal(1.4e4) },
 			effect() { return new Decimal(2) },
 			style() {
 				let s = {}
 				s["border-radius"] = "0 0 10px 0"
-				//if (tmp.u.upgrades["31"].unlocked) s["border-radius"] = "0"
+				if (tmp.u.upgrades["35"].unlocked) s["border-radius"] = "0"
 				return s
 			},
 			unlocked() { return hasUpgrade("u", 24) },
 		},
+		31: {
+			title: "Uranium XI",
+			description: "ln([Best Uranium]) multiplies Death Point gain.",
+			cost() { return new Decimal(2.2e4) },
+			effect() {
+				let eff = player.u.best.max(0.1)
+				return hasUpgrade("u", 32) ? eff.log2() : eff.ln() 
+			},
+			effectDisplay() { return format(this.effect()) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 0 10px 10px"
+				if (tmp.u.upgrades["32"].unlocked) s["border-radius"] = "0 0 0 10px"
+				return s
+			},
+			unlocked() { return hasUpgrade("u", 25) },
+		},
+		32: {
+			title: "Uranium XII",
+			description: "Uranium XI uses log2 instead of ln.",
+			cost() { return new Decimal(2.8e4) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 0 10px 0"
+				if (tmp.u.upgrades["33"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+			unlocked() { return hasUpgrade("u", 31) },
+		},
+		33: {
+			title: "Uranium XIII",
+			description: "Uranium XI multiplies Uranium I.",
+			cost() { return new Decimal(3.3e4) },
+			effect() { return 5 },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 0 10px 0"
+				if (tmp.u.upgrades["34"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+			unlocked() { return hasUpgrade("u", 32) },
+		},
+		34: {
+			title: "Uranium XIV",
+			description: "Raise Uranium gain by 1.1.",
+			cost() { return new Decimal(4.5e4) },
+			effect() { return new Decimal(1.1) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 0 10px 0"
+				if (tmp.u.upgrades["35"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+			unlocked() { return hasUpgrade("u", 33) },
+		},
+		35: {
+			title: "Uranium XV",
+			description: "Unlock a new layer.",
+			cost() { return new Decimal(1.25e5) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 0 10px 0"
+				//if (tmp.u.upgrades["45"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+			unlocked() { return hasUpgrade("u", 34) },
+		},
+	},
+	branches: [
+		["r", function() { return player.r.unlocked ? "#614a00" : "#303030" }, 25],
+	],
+	doReset(layer) {
+		if (layers[layer].row == this.row) return
+		let keep = []
+		const upgrades = [...player.u.upgrades]
+		layerDataReset("u", keep)
+		if (hasMilestone("r", 0)) {
+			const c = Math.floor(player.r.times / 5) * 3
+			for (let i = 0; i < c; i++) {
+				const id = 10 + (i % 5) + (Math.floor(i / 5) * 10 + 1)
+				if (upgrades.includes(id)) player.u.upgrades.push(id)
+			}
+			player.points = new Decimal(0.1)
+			player.u.best = new Decimal(2)
+		}
 	},
 })
+
+addLayer("r", {
+	name: "Rads",
+    symbol: "Ra",
+    position: 1,
+    startData() { return {
+        unlocked: false,
+		points: new Decimal(0),
+		best: new Decimal(0),
+		total: new Decimal(0),
+		times: 0,
+    } },
+    color: "#633127",
+    requires: new Decimal(1.45e5),
+    resource: "Rads",
+    baseResource: "Uranium",
+    baseAmount() { return player.u.points },
+    type: "normal",
+    row: 1,
+	displayRow: 0,
+	exponent: 1,
+	passiveGeneration() { return hasMilestone("r", 3) ? 1 : 0 },
+    layerShown() { return player.r.unlocked || hasUpgrade("u", 35) },
+	update(delta) {
+		if (hasMilestone("r", 2)) player.r.times += delta
+	},
+	onPrestige() {
+		player.r.times++;
+	},
+	tabFormat: {
+		Upgrades: {
+			content: [
+				"main-display",
+				"prestige-button",
+				"blank",
+				"upgrades",
+			],
+		},
+		Milestones: {
+			content: [
+				"main-display",
+				() => ["display-text", `You have done ${formatWhole(player.r.times)} Rads resets`],
+				"blank",
+				"milestones",
+			],
+		},
+	},
+	upgrades: {
+		11: RadUpgrade("I", u=true, s="10px 0 0 0"),
+		12: RadUpgrade("II"),
+		13: RadUpgrade("III"),
+		14: RadUpgrade("IV"),
+		15: RadUpgrade("V", u=true, s="0 10px 0 0"),
+
+		21: RadUpgrade("VI"),
+		22: RadUpgrade("VII"),
+		23: RadUpgrade("VIII"),
+		24: RadUpgrade("IX"),
+		25: RadUpgrade("X"),
+
+		31: RadUpgrade("XI"),
+		32: RadUpgrade("XII"),
+		33: RadUpgrade("XIII"),
+		34: RadUpgrade("XIV"),
+		35: RadUpgrade("XV"),
+
+		41: RadUpgrade("XVI"),
+		42: RadUpgrade("XVII"),
+		43: RadUpgrade("XVIII"),
+		44: RadUpgrade("XIX"),
+		45: RadUpgrade("XX"),
+
+		51: RadUpgrade("XXI", u=true, s="0 0 0 10px"),
+		52: RadUpgrade("XXII"),
+		53: RadUpgrade("XXIII"),
+		54: RadUpgrade("XXIV"),
+		55: RadUpgrade("XXV", u=true, s="0 0 10px 0"),
+	},
+	milestones: {
+		0: {
+			requirementDescription: "5 Rads resets (1)",
+			effectDescription: "Every 5 Rads resets keep three Uranium upgrade.",
+			done() { return player.r.times >= 5 },
+			style() { return { "border-radius": "5px 5px 0 0" } },
+		},
+		1: {
+			requirementDescription: "10 Rads resets (2)",
+			effectDescription: "Every 5 Rads resets a 1 to the base Uranium gain.",
+			done() { return player.r.times >= 10 },
+		},
+		2: {
+			requirementDescription: "25 Rads resets (3)",
+			effectDescription: "Gain 1 Rads resets per second.",
+			done() { return player.r.times >= 20 },
+		},
+		3: {
+			requirementDescription: "50 Rads resets (4)",
+			effectDescription: "Gain 100% of Rads per second.",
+			done() { return player.r.times >= 50 },
+			style() { return { "border-radius": "0 0 5px 5px" } },
+		},
+	},
+})
+
+const achData = [
+	{ Name: "The Beginning", Color: "lime", Rows: [1, 2, 3] },
+	{ Name: "Mutation", Color: "purple", Rows: [4] },
+]
 
 addLayer("a", {
     name: "Achievements",
@@ -218,9 +454,16 @@ addLayer("a", {
 	tabFormat: [
 		["display-text", "<h1>Achievements</h1>"],
 		"blank",
-		["display-text", "<h3 style='color:lime'>The Beginning</h3>"],
-		"blank",
-		"achievements",
+		() => {
+			let data = ["column", []]
+			achData.forEach(e => {
+				data[1].push(["display-text", `<h3 style='color:${e.Color}'>${e.Name}</h3>`])
+				data[1].push("blank")
+				data[1].push(["achievements", e.Rows])
+				data[1].push(["blank", "50px"])
+			});
+			return data
+		},
 	],
 	achievements: {
 		11: Achievement("One", () => player.points.gte(1), t="Get 1 Death Points", u=true, s="10px 0 0 0"),
@@ -246,5 +489,13 @@ addLayer("a", {
 		35: Achievement("Nineteen", () => player.u.points.gte(8e3), t="Get 8,000 Uranium"),
 		36: Achievement("Twenty", () => player.u.points.gte(1.5e4), t="Get 15,000 Uranium"),
 		37: Achievement("Twenty-one", () => player.u.points.gte(1.7e4), t="Get 17,000 Uranium", u=true, s="0 0 10px 0"),
+
+		41: Achievement("Twenty-two", () => player.r.times >= 1, t="1 Rads resets", u=true, s="10px 0 0 10px"),
+		42: Achievement("Twenty-three", () => player.r.times >= 5, t="5 Rads resets"),
+		43: Achievement("Twenty-four", () => player.r.times >= 10, t="10 Rads resets"),
+		44: Achievement("Twenty-five", () => player.r.times >= 15, t="15 Rads resets"),
+		45: Achievement("Twenty-six", () => player.r.times >= 20, t="20 Rads resets"),
+		46: Achievement("Twenty-seven", () => player.r.times >= 25, t="25 Rads resets"),
+		47: Achievement("Twenty-eight", () => player.r.times >= 100, t="100 Rads resets", u=true, s="0 10px 10px 0"),
 	},
 })

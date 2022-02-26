@@ -14,8 +14,8 @@ let modInfo = {
 }
 
 let VERSION = {
-	num: "0.002",
-	name: "Dead",
+	num: "0.003",
+	name: "Mutations",
 }
 
 function VersionText(v, t) {
@@ -28,7 +28,7 @@ function VersionText(v, t) {
 
 let changelog = `<h1>Changelog:</h1><br><br>
 	<h2 style='color:yellow'>Endgame:</h2><br><br>
-	${GlowText("h3", "23,500", "#106b00")} Uranium (Last updated v0.002)<br>
+	${GlowText("h3", "100", "#633127")} Rads & ${GlowText("h3", "100", "#633127")} Rads resets (Last updated v0.003)<br>
 	<br>
 	<h2 style='color:green'>Notes:</h2><br><br>
 	<span style='color:yellow'>Versions will be v</span><span style='color:red'>A</span>.<span style='color:lime'>B</span>.<span style='color:blue'>C</span><br>
@@ -36,6 +36,7 @@ let changelog = `<h1>Changelog:</h1><br><br>
 	- <span style='color:lime'>B</span> will be small updates.<br>
 	- <span style='color:blue'>C</span> will be bug fixes.<br>
 	<br><br><br>
+	${VersionText("v0.003", ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
 	${VersionText("v0.002", ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
 	${VersionText("v0.001", ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
 `
@@ -57,9 +58,11 @@ function getPointGen() {
 		return new Decimal(0)
 
 	let gain = new Decimal(0.1)
+	gain = gain.add(player.r.upgrades.length)
 	if (hasUpgrade("u", 11)) gain = gain.mul(upgradeEffect("u", 11))
 	if (hasUpgrade("u", 14)) gain = gain.mul(upgradeEffect("u", 14))
 	if (hasUpgrade("u", 25)) gain = gain.pow(upgradeEffect("u", 25))
+	if (hasUpgrade("u", 31)) gain = gain.mul(upgradeEffect("u", 31))
 	return gain
 }
 
@@ -67,11 +70,13 @@ function addedPlayerData() { return {
 }}
 
 var displayThings = [
-	() => `<br>Inspired by ${GlowText("span", "pg132", "white")}'s mod "The Tree of Life"`
+	() => `<br>Inspired by ${GlowText("span", "pg132", "white")}'s mod "The Tree of Life"`,
+	"<br>",
+	() => player.keepGoing ? `<h3 style='color:maroon'>Your past endgame</h3><br><h3 style='color:maroon'>The game may not</h3><br><h3 style='color:maroon'>be balanced past this</h3>` : ""
 ]
 
 function isEndgame() {
-	return player.u.points.gte(2.35e4)
+	return player.r.points.gte(100) && player.r.times >= 100
 }
 
 var backgroundStyle = {
