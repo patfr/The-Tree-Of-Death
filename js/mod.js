@@ -88,5 +88,8 @@ function maxTickLength() {
 	return(3600)
 }
 
-function fixOldSave(oldVersion){
+function fixOldSave(oldVersion) {
+	if (oldVersion === "0.003") {
+		player.r.buyables[11] = new Decimal(player.r.upgrades.length)
+	}
 }
