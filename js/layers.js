@@ -639,7 +639,7 @@ const Achievement = (n, d, t = "", s = "0px") => { return { name: achNumber(n), 
 
 const achInfo = [
 	// C1 : 1 - 3
-	{ Done: () => player.u.points.gte(400)        , Tool: "Get 1 Death Points"     , Style: "10px 0 0 0"    , },
+	{ Done: () => player.points.gte(1)            , Tool: "Get 1 Death Points"     , Style: "10px 0 0 0"    , },
 	{ Done: () => player.points.gte(10)           , Tool: "Get 10 Death Points"    , Style: "0"             , },
 	{ Done: () => player.points.gte(100)          , Tool: "Get 100 Death Points"   , Style: "0"             , },
 	{ Done: () => player.points.gte(500)          , Tool: "Get 500 Death Points"   , Style: "0"             , },
