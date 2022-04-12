@@ -14,8 +14,8 @@ let modInfo = {
 }
 
 let VERSION = {
-	num: "0.003.1",
-	name: "Mutations",
+	num: "0.004",
+	name: "Toxicity",
 }
 
 function VersionText(v, t) {
@@ -28,23 +28,25 @@ function VersionText(v, t) {
 
 let changelog = `<h1>Changelog:</h1><br><br>
 	<h2 style='color:yellow'>Endgame:</h2><br><br>
-	${GlowText("h3", "100", "#633127")} Rads & ${GlowText("h3", "100", "#633127")} Rads resets (Last updated v0.003)<br>
+	${GlowText("h3", "1", "#666111")} Toxins & ${GlowText("h3", "1.00e10", "#340b6e")} Venom (Last updated v0.004)<br>
 	<br>
-	<h2 style='color:green'>Notes:</h2><br><br>
-	<span style='color:yellow'>Versions will be v</span><span style='color:red'>A</span>.<span style='color:lime'>B</span>.<span style='color:blue'>C</span><br>
-	- <span style='color:red'>A</span> will be big updates.<br>
-	- <span style='color:lime'>B</span> will be small updates.<br>
-	- <span style='color:blue'>C</span> will be bug fixes.<br>
-	<br><br><br>
+	<span style='color:yellow'>Version number format: v</span><span style='color:red'>A</span>.<span style='color:lime'>B</span>.<span style='color:blue'>C</span><br>
+	- <span style='color:red'>A</span> is for big patches.<br>
+	- <span style='color:lime'>B</span> is for small patches.<br>
+	- <span style='color:blue'>C</span> is for bug fixes.<br>
+	<br>
+	<h2 style='color:green'>Current version:</h2><br><br>
+	${VersionText("v0.004",   ["Added Toxins", "Added Venom", "Added 2 rows of achievments", "Added some features in achievements tab", "Added a Toxins milestone", "Added three Toxins buyables", "Changed all info tabs"])}
+	<br><h2 style='color:green'>Older versions:</h2><br><br>
 	${VersionText("v0.003.1", ["Changed Rad upgrades into a buyable instead", "Fixed milestone incorrect description", "Added more formula information", "Changed Uranium upgrade IX", "Changed 4th row of achievements to only show when you unlock Rads", "Rebalanced the game after the changes to IX"])}
 	${VersionText("v0.003",   ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
 	${VersionText("v0.002",   ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
 	${VersionText("v0.001",   ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
 `
 
-let winText = `Congratulations! You have reached the end and beaten this game, but for now...`
+let winText = `Congratulations! You have reached the end of The Tree Of Death. Thank you for playing more content will come.`
 
-var doNotCallTheseFunctionsEveryTick = ["blowUpEverything"]
+var doNotCallTheseFunctionsEveryTick = []
 
 function getStartPoints(){
     return new Decimal(modInfo.initialStartPoints)
@@ -77,7 +79,7 @@ var displayThings = [
 ]
 
 function isEndgame() {
-	return player.r.points.gte(100) && player.r.times >= 100
+	return player.t.points.gte(1) && player.t.venom.points.gte(1e10)
 }
 
 var backgroundStyle = {
@@ -89,7 +91,13 @@ function maxTickLength() {
 }
 
 function fixOldSave(oldVersion) {
-	if (oldVersion === "0.003") {
-		player.r.buyables[11] = new Decimal(player.r.upgrades.length)
+	switch (oldVersion) {
+		case "0.003":
+			player.r.buyables[11] = new Decimal(player.r.upgrades.length)
+			break;
+		case "0.003.1":
+			player.r.points = player.r.points.min(1000)
+		default:
+			break;
 	}
 }

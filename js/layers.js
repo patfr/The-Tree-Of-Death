@@ -1,6 +1,3 @@
-const Achievement = (n, d, t = "", u = true, s = "0px") => { return { name: n, done: d, tooltip: t, unlocked: u, style() { return { "border-radius": s, } } } }
-const AchievementUnlocked = (id) => tmp.a.achievements[id].unlocked
-
 /* Credits to pg132 for this function */
 const getLogisticTimeConstant = function(current, gain, loss) {
 	if (current.eq(gain.div(loss))) return Infinity
@@ -96,13 +93,15 @@ addLayer("u", {
 		Info: {
 			content: [
 				() => ["raw-html",
-					`<h1>Information:</h1><br><br>
-					<h2 style='color:red'>Initial base gain:</h2><br>
+					`<h1 style='color:red'>Information:</h1><br><br>
+					<h2 style='color:maroon'>Initially resets:</h2><br><br>
+					<h3>Nothing<h3><br>
+					<br>
+					<h2 style='color:maroon'>Initial base gain:</h2><br><br>
 					<span>min(ln([Death Points] + 1), 4)<span><br>
 					<br>
-					<h2 style='color:red'>Current base gain:</h2><br>
+					<h2 style='color:maroon'>Current base gain:</h2><br><br>
 					<span>min(ln([Death Points] + 1), ${tmp.u.getBaseCap})${hasMilestone("r", 1) ? " + [Rads resets] / 5" : ""}<span><br>
-					<span>min(ln(${format(player.points.add(1))}), ${tmp.u.getBaseCap})${hasMilestone("r", 1) ? ` + ${formatWhole(Math.min(Math.floor(player.r.times / 5), 40))}` : ""} = </span>${format(tmp.u.getBaseGain)} base Uranium gain
 					`
 				],
 			],
@@ -330,7 +329,7 @@ addLayer("u", {
 		if (hasMilestone("r", 0)) {
 			const c = Math.floor(player.r.times / 5) * 3
 			for (let i = 0; i < c; i++) {
-				const id = 10 + (i % 5) + (Math.floor(i / 5) * 10 + 1)
+				const id = 11 + i % 5 + Math.floor(i / 5) * 10
 				if (upgrades.includes(id)) player.u.upgrades.push(id)
 			}
 			player.points = new Decimal(0.1)
@@ -386,6 +385,17 @@ addLayer("r", {
 				"milestones",
 			],
 		},
+		Info: {
+			content: [
+				() => ["raw-html",
+					`<h1 style='color:red'>Information:</h1><br><br>
+					<h2 style='color:maroon'>Initially resets:</h2><br><br>
+					<h3>Death Points<h3><br>
+					<h3>All Uranium layer content<h3><br>
+					`
+				],
+			],
+		},
 	},
 	buyables: {
 		11: {
@@ -421,14 +431,263 @@ addLayer("r", {
 			requirementDescription: "50 Rads resets (4)",
 			effectDescription: "Gain 100% of Rads per second.",
 			done() { return player.r.times >= 50 },
+		},
+		4: {
+			requirementDescription: "50 Rads (5)",
+			effectDescription: "Unlock a new layer.",
+			done() { return player.r.points.gte(50) },
 			style() { return { "border-radius": "0 0 5px 5px" } },
+		},
+	},
+	branches: [
+		["t", function() { return player.r.unlocked ? "#65491c" : "#303030" }, 25],
+	],
+	doReset(layer) {
+		if (layers[layer].row == this.row) return
+		let keep = []
+		const milestones = [...player.r.milestones]
+		const mutation = new Decimal(player.r.buyables[11])
+		const radReset = player.t.times
+		layerDataReset("r", keep)
+		if (hasMilestone("t", 0)) {
+			const c = player.t.milestones.length
+			for (let i = 0; i < c; i++) {
+				const id = `${i}`
+				if (milestones.includes(id)) player.r.milestones.push(id)
+			}
+			console.log(player.t.times, new Decimal(player.t.times), mutation)
+			let amount = new Decimal(player.t.times).min(25).min(mutation)
+			player.r.buyables[11] = amount
+			player.r.times = Math.min(radReset, player.t.times)
+		}
+	},
+})
+
+const GainCurrency = (c, g, d) => { c.best = c.best.max(c.points); let a = g.mul(d); c.total = c.total.add(a); c.points = c.points.add(a); }
+
+addLayer("t", {
+	name: "Toxins",
+    symbol: "Tx",
+    position: 0,
+    startData() { return {
+        unlocked: false,
+		venom: { points: new Decimal(0), best: new Decimal(0), total: new Decimal(0) },
+		points: new Decimal(0),
+		best: new Decimal(0),
+		total: new Decimal(0),
+		times: 0,
+    } },
+	requires: new Decimal(100),
+    resource: "Toxins",
+    baseResource: "Rads",
+    baseAmount() { return player.r.points },
+    color: "#666111",
+	colors: { venom: "#340b6e", },
+    type: "static",
+    row: 2,
+	displayRow: 2,
+	exponent: 0.1,
+	base: 1e100,
+    layerShown() { return hasMilestone("r", 4) || player.t.unlocked },
+	update(delta) {
+		player.t.venom.best = player.t.venom.best.max(player.t.venom.points)
+		player.t.venom.points = player.t.venom.points.add(tmp.t.proVenom.gain.mul(delta))
+	},
+	onPrestige() {
+		player.t.times++;
+	},
+	production() {
+		let gain = new Decimal(10)
+		if (player.t.unlocked) gain = gain.pow(player.t.points.sub(1)).max(0)
+		return gain
+	},
+	proVenom : {
+		can() {
+			return player.t.points.gte(1) && hasMilestone("r", 4)
+		},
+		base() {
+			let base = tmp.t.production
+
+			base = base.add(buyableEffect("t", 12))
+			base = base.pow(buyableEffect("t", 13))
+
+			if (tmp.t.proVenom.can)
+				return base
+			return new Decimal(0)
+		},
+		gain() {
+			let gain = tmp.t.proVenom.base
+			gain = gain.mul(buyableEffect("t", 11))
+			return gain
+		},
+	},
+	tabFormat: {
+		Main: {
+			content: [
+				"main-display",
+				"prestige-button",
+				"blank",
+				() => ["display-text", `You have done ${formatWhole(player.t.times)} Toxins resets`],
+				() => ["display-text", `You have ${formatWhole(player.r.points)} Rads`],
+				"blank",
+				"milestones",
+			]
+		},
+		Production: {
+			content: [
+				"main-display",
+				() => ["display-text", `Your base production is ${tmp.t.production}/s`],
+				"blank",
+				() => ["display-text", `You have ${GlowText("h2", format(player.t.venom.points), tmp.t.colors.venom)} Venom`],
+				["display-text", "(Requires: 1+ Toxins & Rads milestone 5)"],
+				"blank",
+				() => ["display-text", `You are gaining ${format(tmp.t.proVenom.gain)} Venom per second`],
+				"blank",
+				["buyables", [1]],
+			],
+			unlocked() { hasMilestone("t", 0) },
+		},
+		Info: {
+			content: [
+				() => ["raw-html",
+					`<h1 style='color:red'>Information:</h1><br><br>
+					<h2 style='color:maroon'>Initially resets:</h2><br><br>
+					<h3>Death Points<h3><br>
+					<h3>All Uranium layer content<h3><br>
+					<h3>All Rads layer content<h3><br>
+					<br>
+					<h2 style='color:maroon'>Info:</h2><br><br>
+					<span>You only produce things when you meet the requirement for them.<span><br>
+					<br>
+					<h2 style='color:maroon'>Initial base production:</h2><br><br>
+					<span>max(10 ^ ([Toxins] - 1), 0)<span><br>
+					<br>
+					<h2 style='color:maroon'>Current base production:</h2><br><br>
+					<span>max(10 ^ ([Toxins] - 1), 0)<span><br>
+					`
+				],
+			],
+		},
+	},
+	buyables: {
+		11: {
+			cost(x) { return new Decimal(2).mul(new Decimal(3).pow(x.pow(1.5))) },
+			effect(x) { return new Decimal(2).pow(x.add(this.extra())) },
+			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Gain</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom gain.</h2><br><br><h2>Currently:<br>*${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
+			canAfford() { return player.t.venom.points.gte(this.cost()) },
+			buy() {
+				player.t.venom.points = player.t.venom.points.sub(this.cost())
+				addBuyables("t", this.id, 1)
+			},
+			extra() { return getBuyableAmount("t", 12) },
+			style() { return { "width": "200px", "height": "300px", "border-radius": (tmp.t.buyables[12].unlocked ? "10px 0 0 10px" : "10px") } },
+		},
+		12: {
+			cost(x) { return new Decimal(100).mul(new Decimal(4).pow(x.pow(1.1))) },
+			effect(x) { return new Decimal(1.5).pow(x.add(this.extra())).sub(1) },
+			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Base</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom base.</h2><br><br><h2>Currently:<br>+${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
+			canAfford() { return player.t.venom.points.gte(this.cost()) },
+			buy() {
+				player.t.venom.points = player.t.venom.points.sub(this.cost())
+				addBuyables("t", this.id, 1)
+			},
+			extra() { return getBuyableAmount("t", 13) },
+			unlocked() { return getBuyableAmount("t", 11).gte(3) },
+			style() { return { "width": "200px", "height": "300px", "border-radius": (tmp.t.buyables[13].unlocked ? "0" : "0 10px 10px 0") } },
+		},
+		13: {
+			cost(x) { return new Decimal(2e4).mul(new Decimal(2.5).pow(x.pow(1.5))) },
+			effect(x) { return new Decimal(1.01).pow(x.add(this.extra())) },
+			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Power</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom power.</h2><br><br><h2>Currently:<br>^${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
+			canAfford() { return player.t.venom.points.gte(this.cost()) },
+			buy() {
+				player.t.venom.points = player.t.venom.points.sub(this.cost())
+				addBuyables("t", this.id, 1)
+			},
+			extra() { return new Decimal(0) },
+			unlocked() { return getBuyableAmount("t", 11).gte(5) },
+			style() { return { "width": "200px", "height": "300px", "border-radius": "0 10px 10px 0" } },
+		},
+	},
+	milestones: {
+		0: {
+			requirementDescription: "1 Toxins (1)",
+			effectDescription: "Keep a Rads milestone per Toxins milestone, keep a Mutation level per Toxins reset, keep a Rads reset per Toxins reset, unlock one new tabs and unlock Venom.",
+			done() { return player.t.points.gte(1) },
+			style() { return { "border-radius": "5px 5px 5px 5px" } },
 		},
 	},
 })
 
 const achData = [
-	{ Name: "The Beginning", Color: "lime", Rows: [1, 2, 3], Unlocked: () => true },
-	{ Name: "Mutation", Color: "purple", Rows: [4], Unlocked: () => player.r.unlocked },
+	{ Name: "The Beginning", Color: "lime", Rows: [1, 2, 3], Unlocked: () => true, Id: "beginning", },
+	{ Name: "Mutation", Color: "purple", Rows: [4], Unlocked: () => player.r.unlocked, Id: "mutation", },
+	{ Name: "Toxicity", Color: "darkgoldenrod", Rows: [5, 6], Unlocked: () => player.t.unlocked, Id: "toxic", },
+]
+
+const achNumberData = [
+	{
+		1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven", 8: "Eight", 9: "Nine",
+		10: "Ten", 11: "Eleven", 12: "Twelve", 13: "Thirteen", 14: "Fourteen", 15: "Fifteen", 16: "Sixteen", 17: "Seventeen", 18: "Eighteen", 19: "Nineteen",
+	},
+	{ 20: "Twenty", 30: "Thirty", 40: "Forty", 50: "Fifty", 60: "Sixty", 70: "Seventy", 80: "Eighty", 90: "Ninety", },
+]
+
+const achNumber = (n) => n < 20 ? achNumberData[0][n] : `${achNumberData[1][n - n % 10]}${n % 10 == 0 ? "" : `-${achNumberData[0][n % 10]}`}`
+
+const Achievement = (n, d, t = "", s = "0px") => { return { name: achNumber(n), done: d, tooltip: t, unlocked: true, style() { return { "border-radius": s, } } } }
+
+const achInfo = [
+	// C1 : 1 - 3
+	{ Done: () => player.u.points.gte(400)        , Tool: "Get 1 Death Points"     , Style: "10px 0 0 0"    , },
+	{ Done: () => player.points.gte(10)           , Tool: "Get 10 Death Points"    , Style: "0"             , },
+	{ Done: () => player.points.gte(100)          , Tool: "Get 100 Death Points"   , Style: "0"             , },
+	{ Done: () => player.points.gte(500)          , Tool: "Get 500 Death Points"   , Style: "0"             , },
+	{ Done: () => player.points.gte(1e3)          , Tool: "Get 1,000 Death Points" , Style: "0"             , },
+	{ Done: () => player.points.gte(2e3)          , Tool: "Get 2,000 Death Points" , Style: "0"             , },
+	{ Done: () => player.points.gte(3e3)          , Tool: "Get 3,000 Death Points" , Style: "0 10px 0 0"    , },
+
+	{ Done: () => player.u.points.gte(1)          , Tool: "Get 1 Uranium"          , Style: "0"             , },
+	{ Done: () => player.u.points.gte(5)          , Tool: "Get 5 Uranium"          , Style: "0"             , },
+	{ Done: () => player.u.points.gte(10)         , Tool: "Get 10 Uranium"         , Style: "0"             , },
+	{ Done: () => player.u.points.gte(15)         , Tool: "Get 15 Uranium"         , Style: "0"             , },
+	{ Done: () => player.u.points.gte(100)        , Tool: "Get 100 Uranium"        , Style: "0"             , },
+	{ Done: () => player.u.points.gte(300)        , Tool: "Get 300 Uranium"        , Style: "0"             , },
+	{ Done: () => player.u.points.gte(400)        , Tool: "Get 400 Uranium"        , Style: "0"             , },
+
+	{ Done: () => player.u.points.gte(1e3)        , Tool: "Get 1,000 Uranium"      , Style: "0 0 0 10px"    , },
+	{ Done: () => player.u.points.gte(2e3)        , Tool: "Get 2,000 Uranium"      , Style: "0"             , },
+	{ Done: () => player.u.points.gte(3e3)        , Tool: "Get 3,000 Uranium"      , Style: "0"             , },
+	{ Done: () => player.u.points.gte(4e3)        , Tool: "Get 4,000 Uranium"      , Style: "0"             , },
+	{ Done: () => player.u.points.gte(8e3)        , Tool: "Get 8,000 Uranium"      , Style: "0"             , },
+	{ Done: () => player.u.points.gte(1.5e4)      , Tool: "Get 15,000 Uranium"     , Style: "0"             , },
+	{ Done: () => player.u.points.gte(1.7e4)      , Tool: "Get 17,000 Uranium"     , Style: "0 0 10px 0"    , },
+
+	// C2 4 - 4
+	{ Done: () => player.r.times >= 1             , Tool: "Get 1 Rads resets"      , Style: "10px 0 0 10px" , },
+	{ Done: () => player.r.times >= 5             , Tool: "Get 5 Rads resets"      , Style: "0"             , },
+	{ Done: () => player.r.times >= 10            , Tool: "Get 10 Rads resets"     , Style: "0"             , },
+	{ Done: () => player.r.times >= 15            , Tool: "Get 15 Rads resets"     , Style: "0"             , },
+	{ Done: () => player.r.times >= 20            , Tool: "Get 20 Rads resets"     , Style: "0"             , },
+	{ Done: () => player.r.times >= 25            , Tool: "Get 25 Rads resets"     , Style: "0"             , },
+	{ Done: () => player.r.times >= 100           , Tool: "Get 100 Rads resets"    , Style: "0 10px 10px 0" , },
+
+	// C3 5 - 6
+	{ Done: () => player.t.times >= 1             , Tool: "Get 1 Toxins resets"    , Style: "10px 0 0 0"    , },
+	{ Done: () => player.t.times >= 2             , Tool: "Get 2 Toxins resets"    , Style: "0"             , },
+	{ Done: () => player.t.times >= 3             , Tool: "Get 3 Toxins resets"    , Style: "0"             , },
+	{ Done: () => player.t.times >= 4             , Tool: "Get 4 Toxins resets"    , Style: "0"             , },
+	{ Done: () => player.t.times >= 5             , Tool: "Get 5 Toxins resets"    , Style: "0"             , },
+	{ Done: () => player.t.times >= 6             , Tool: "Get 6 Toxins resets"    , Style: "0"             , },
+	{ Done: () => player.t.times >= 7             , Tool: "Get 7 Toxins resets"    , Style: "0 10px 0 0"    , },
+
+	{ Done: () => player.t.venom.points.gte(1)    , Tool: "Get 1 Venom"            , Style: "0 0 0 10px"    , },
+	{ Done: () => player.t.venom.points.gte(100)  , Tool: "Get 100 Venom"          , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e4)  , Tool: "Get 10,000 Venom"       , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e6)  , Tool: "Get 1,000,000 Venom"    , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e8)  , Tool: "Get 100,000,000 Venom"  , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e10) , Tool: "Get 1.00e10 Venom"      , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e12) , Tool: "Get 1.00e12 Venom"      , Style: "0 0 10px 0"    , },
 ]
 
 addLayer("a", {
@@ -443,52 +702,45 @@ addLayer("a", {
 	tooltip: "Achievements",
     layerShown(){return true},
 	tabFormat: [
-		["display-text", "<h1>Achievements</h1>"],
+		["display-text", "<h1 id='ach-achievements'>Achievements</h1>"],
 		"blank",
 		() => {
 			let data = ["column", []]
+
+			data[1].push(["display-text", "<h2 style='color:#03d3fc'>Goto</h2>"])
+			data[1].push("blank")
+
 			achData.forEach(e => {
 				if (e.Unlocked()) {
-					data[1].push(["display-text", `<h3 style='color:${e.Color}'>${e.Name}</h3>`])
+					data[1].push(["display-text", `<a href='#ach-${e.Id}' style='color:white'>- ${e.Name}</a>`])
+				}
+			})
+
+			data[1].push("blank")
+			data[1].push(["display-text", "<h2 style='color:#03d3fc'>Achievements</h2>"])
+			data[1].push("blank")
+
+			achData.forEach(e => {
+				if (e.Unlocked()) {
+					data[1].push(["display-text", `<h3 id='ach-${e.Id}' style='color:${e.Color}'>${e.Name}</h3>`])
+					data[1].push(["display-text", "<a href='#ach-achievements' style='color:white;font-size:12px'>(Goto top)</a>"])
 					data[1].push("blank")
 					data[1].push(["achievements", e.Rows])
 					data[1].push(["blank", "50px"])
 				}
-			});
+			})
 			return data
 		},
 	],
-	achievements: {
-		11: Achievement("One", () => player.points.gte(1), t="Get 1 Death Points", u=true, s="10px 0 0 0"),
-		12: Achievement("Two", () => player.points.gte(10), t="Get 10 Death Points"),
-		13: Achievement("Three", () => player.points.gte(100), t="Get 100 Death Points"),
-		14: Achievement("Four", () => player.points.gte(500), t="Get 500 Death Points"),
-		15: Achievement("Five", () => player.points.gte(1e3), t="Get 1,000 Death Points"),
-		16: Achievement("Six", () => player.points.gte(2e3), t="Get 2,000 Death Points"),
-		17: Achievement("Seven", () => player.points.gte(3e3), t="Get 3,000 Death Points", u=true, s="0 10px 0 0"),
-		
-		21: Achievement("Eight", () => player.u.points.gte(1), t="Get 1 Uranium"),
-		22: Achievement("Nine", () => player.u.points.gte(5), t="Get 5 Uranium"),
-		23: Achievement("Ten", () => player.u.points.gte(10), t="Get 10 Uranium"),
-		24: Achievement("Eleven", () => player.u.points.gte(15), t="Get 15 Uranium"),
-		25: Achievement("Twelve", () => player.u.points.gte(100), t="Get 100 Uranium"),
-		26: Achievement("Thirteen", () => player.u.points.gte(300), t="Get 300 Uranium"),
-		27: Achievement("Fourteen", () => player.u.points.gte(400), t="Get 400 Uranium",),
+	achievements: function() {
+		let achs = {}
 
-		31: Achievement("Fifteen", () => player.u.points.gte(1e3), t="Get 1,000 Uranium", u=true, s="0 0 0 10px"),
-		32: Achievement("Sixteen", () => player.u.points.gte(2e3), t="Get 2,000 Uranium"),
-		33: Achievement("Seventeen", () => player.u.points.gte(3e3), t="Get 3,000 Uranium"),
-		34: Achievement("Eighteen", () => player.u.points.gte(4e3), t="Get 4,000 Uranium"),
-		35: Achievement("Nineteen", () => player.u.points.gte(8e3), t="Get 8,000 Uranium"),
-		36: Achievement("Twenty", () => player.u.points.gte(1.5e4), t="Get 15,000 Uranium"),
-		37: Achievement("Twenty-one", () => player.u.points.gte(1.7e4), t="Get 17,000 Uranium", u=true, s="0 0 10px 0"),
+		for (let i = 0; i < achInfo.length; i++) {
+			const id = 11 + i % 7 + Math.floor(i / 7) * 10
+			achs[id] = Achievement(i + 1, achInfo[i].Done, achInfo[i].Tool, achInfo[i].Style)
+		}
 
-		41: Achievement("Twenty-two", () => player.r.times >= 1, t="1 Rads resets", u=true, s="10px 0 0 10px"),
-		42: Achievement("Twenty-three", () => player.r.times >= 5, t="5 Rads resets"),
-		43: Achievement("Twenty-four", () => player.r.times >= 10, t="10 Rads resets"),
-		44: Achievement("Twenty-five", () => player.r.times >= 15, t="15 Rads resets"),
-		45: Achievement("Twenty-six", () => player.r.times >= 20, t="20 Rads resets"),
-		46: Achievement("Twenty-seven", () => player.r.times >= 25, t="25 Rads resets"),
-		47: Achievement("Twenty-eight", () => player.r.times >= 100, t="100 Rads resets", u=true, s="0 10px 10px 0"),
-	},
+		return achs
+
+	}(),
 })
