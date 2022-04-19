@@ -364,7 +364,16 @@ addLayer("r", {
 		if (hasMilestone("r", 2)) player.r.times += delta
 	},
 	onPrestige() {
-		player.r.times++;
+		if (hasMilestone("t", 0))
+			player.r.times += 3
+		else
+			player.r.times++;
+	},
+	gainMult() {
+		let gain = new Decimal(1)
+		gain = gain.mul(tmp.t.effect)
+		if (hasUpgrade("t", 15)) gain = gain.mul(upgradeEffect("t", 15))
+		return gain
 	},
 	tabFormat: {
 		Buyables: {
@@ -446,8 +455,7 @@ addLayer("r", {
 		if (layers[layer].row == this.row) return
 		let keep = []
 		const milestones = [...player.r.milestones]
-		const mutation = new Decimal(player.r.buyables[11])
-		const radReset = player.t.times
+		if (hasMilestone("t", 2)) keep.push("buyables")
 		layerDataReset("r", keep)
 		if (hasMilestone("t", 0)) {
 			const c = player.t.milestones.length
@@ -455,10 +463,6 @@ addLayer("r", {
 				const id = `${i}`
 				if (milestones.includes(id)) player.r.milestones.push(id)
 			}
-			console.log(player.t.times, new Decimal(player.t.times), mutation)
-			let amount = new Decimal(player.t.times).min(25).min(mutation)
-			player.r.buyables[11] = amount
-			player.r.times = Math.min(radReset, player.t.times)
 		}
 	},
 })
@@ -486,8 +490,14 @@ addLayer("t", {
     type: "static",
     row: 2,
 	displayRow: 2,
-	exponent: 0.1,
-	base: 1e100,
+	exponent: 10,
+	base: 500,
+	effectDescription() { return `multiplying Rads gain by x${formatWhole(tmp.t.effect)}` },
+	effect() {
+		let eff = new Decimal(1)
+		eff = eff.mul(new Decimal(2).pow(player.t.points))
+		return eff
+	},
     layerShown() { return hasMilestone("r", 4) || player.t.unlocked },
 	update(delta) {
 		player.t.venom.best = player.t.venom.best.max(player.t.venom.points)
@@ -506,9 +516,10 @@ addLayer("t", {
 			return player.t.points.gte(1) && hasMilestone("r", 4)
 		},
 		base() {
-			let base = tmp.t.production
+			let base = new Decimal(1)
 
 			base = base.add(buyableEffect("t", 12))
+			base = base.mul(tmp.t.production)
 			base = base.pow(buyableEffect("t", 13))
 
 			if (tmp.t.proVenom.can)
@@ -518,6 +529,7 @@ addLayer("t", {
 		gain() {
 			let gain = tmp.t.proVenom.base
 			gain = gain.mul(buyableEffect("t", 11))
+			if (hasUpgrade("t", 14)) gain = gain.pow(upgradeEffect("t", 14))
 			return gain
 		},
 	},
@@ -536,6 +548,8 @@ addLayer("t", {
 		Production: {
 			content: [
 				"main-display",
+				["display-text", "<span style='color:yellow'>Note: All production content is reset on Toxins resets initially</span>"],
+				"blank",
 				() => ["display-text", `Your base production is ${tmp.t.production}/s`],
 				"blank",
 				() => ["display-text", `You have ${GlowText("h2", format(player.t.venom.points), tmp.t.colors.venom)} Venom`],
@@ -544,6 +558,10 @@ addLayer("t", {
 				() => ["display-text", `You are gaining ${format(tmp.t.proVenom.gain)} Venom per second`],
 				"blank",
 				["buyables", [1]],
+				"blank",
+				() => hasMilestone("t", 1) ? ["display-text", "<h2>Upgrades</h2>"] : "",
+				() => hasMilestone("t", 1) ? "blank" : "",
+				() => hasMilestone("t", 1) ? ["microtabs", "upgrades"] : "",
 			],
 			unlocked() { hasMilestone("t", 0) },
 		},
@@ -569,34 +587,56 @@ addLayer("t", {
 			],
 		},
 	},
+	microtabs: {
+		upgrades: {
+			Venom: {
+				content: [
+					"upgrades",
+				],
+				unlocked() { return hasMilestone("t", 1) },
+			},
+		},
+	},
 	buyables: {
 		11: {
-			cost(x) { return new Decimal(2).mul(new Decimal(3).pow(x.pow(1.5))) },
-			effect(x) { return new Decimal(2).pow(x.add(this.extra())) },
+			cost(x) { return new Decimal(2).mul(new Decimal(1.1).pow(x.pow(2))) },
+			effect(x) {
+				let base = new Decimal(2)
+				if (hasUpgrade("t", 13)) base = new Decimal(2.5)
+				return base.pow(x.add(this.extra()))
+			},
 			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Gain</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom gain.</h2><br><br><h2>Currently:<br>*${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
 			canAfford() { return player.t.venom.points.gte(this.cost()) },
 			buy() {
 				player.t.venom.points = player.t.venom.points.sub(this.cost())
 				addBuyables("t", this.id, 1)
 			},
-			extra() { return getBuyableAmount("t", 12) },
+			extra() { return getBuyableAmount("t", 12).add(tmp.t.buyables[12].extra) },
 			style() { return { "width": "200px", "height": "300px", "border-radius": (tmp.t.buyables[12].unlocked ? "10px 0 0 10px" : "10px") } },
 		},
 		12: {
-			cost(x) { return new Decimal(100).mul(new Decimal(4).pow(x.pow(1.1))) },
-			effect(x) { return new Decimal(1.5).pow(x.add(this.extra())).sub(1) },
+			cost(x) { return new Decimal(1e4).mul(new Decimal(1.2).pow(x.pow(2))) },
+			effect(x) {
+				let base = new Decimal(1.5)
+				if (hasUpgrade("t", 12)) base = new Decimal(4)
+				return base.pow(x.add(this.extra())).sub(1)
+			},
 			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Base</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom base.</h2><br><br><h2>Currently:<br>+${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
 			canAfford() { return player.t.venom.points.gte(this.cost()) },
 			buy() {
 				player.t.venom.points = player.t.venom.points.sub(this.cost())
 				addBuyables("t", this.id, 1)
 			},
-			extra() { return getBuyableAmount("t", 13) },
-			unlocked() { return getBuyableAmount("t", 11).gte(3) },
+			extra() { return getBuyableAmount("t", 13).add(tmp.t.buyables[13].extra) },
+			unlocked() { return getBuyableAmount("t", 11).gte(10) },
 			style() { return { "width": "200px", "height": "300px", "border-radius": (tmp.t.buyables[13].unlocked ? "0" : "0 10px 10px 0") } },
 		},
 		13: {
-			cost(x) { return new Decimal(2e4).mul(new Decimal(2.5).pow(x.pow(1.5))) },
+			cost(x) {
+				if (hasUpgrade("t", 11))
+					return new Decimal(1.25).pow(x.pow(2))
+				return new Decimal(5e10).mul(new Decimal(1.25).pow(x.pow(2)))
+			},
 			effect(x) { return new Decimal(1.01).pow(x.add(this.extra())) },
 			display() { return `<h1 style='color:${tmp.t.colors.venom}'>Venom Power</h1><br><br><h2>Amount: ${formatWhole(getBuyableAmount("t", this.id))} + ${formatWhole(this.extra())}</h2><br><br><h2>Increases Venom power.</h2><br><br><h2>Currently:<br>^${format(buyableEffect("t", this.id))}</h2><br><br><h2>Costs:<br>${format(this.cost())} Venom</h2>` },
 			canAfford() { return player.t.venom.points.gte(this.cost()) },
@@ -605,24 +645,122 @@ addLayer("t", {
 				addBuyables("t", this.id, 1)
 			},
 			extra() { return new Decimal(0) },
-			unlocked() { return getBuyableAmount("t", 11).gte(5) },
+			unlocked() { return getBuyableAmount("t", 12).gte(10) },
 			style() { return { "width": "200px", "height": "300px", "border-radius": "0 10px 10px 0" } },
+		},
+	},
+	upgrades: {
+		11: {
+			title: "Venom I",
+			description: "Remove Venom Power base cost.",
+			currencyLocation() { return player.t.venom },
+			currencyInternalName: "points",
+			currencyDisplayName: "Venom",
+			cost() { return new Decimal(1e20) },
+			unlocked() { return hasMilestone("t", 1) },
+			style() {
+				let s = {}
+				s["border-radius"] = "10px"
+				if (tmp.t.upgrades["12"].unlocked) s["border-radius"] = "10px 0 0 10px"
+				//if (tmp.t.upgrades["25"].unlocked) s["border-radius"] = "10px 0 0 0"
+				return s
+			},
+		},
+		12: {
+			title: "Venom II",
+			description: "Venom Base base becomes 4  instead of 1.5.",
+			currencyLocation() { return player.t.venom },
+			currencyInternalName: "points",
+			currencyDisplayName: "Venom",
+			cost() { return new Decimal(5e26) },
+			unlocked() { return hasUpgrade("t", 11) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 10px 10px 0"
+				if (tmp.t.upgrades["13"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+		},
+		13: {
+			title: "Venom III",
+			description: "Venom Gain base becomes 2.5 instead of 2.",
+			currencyLocation() { return player.t.venom },
+			currencyInternalName: "points",
+			currencyDisplayName: "Venom",
+			cost() { return new Decimal(1e84) },
+			unlocked() { return hasUpgrade("t", 12) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 10px 10px 0"
+				if (tmp.t.upgrades["14"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+		},
+		14: {
+			title: "Venom IV",
+			description: "Raise Venom gain by 1.1",
+			currencyLocation() { return player.t.venom },
+			currencyInternalName: "points",
+			currencyDisplayName: "Venom",
+			effect() { return new Decimal(1.1) },
+			cost() { return new Decimal(2.5e110) },
+			unlocked() { return hasUpgrade("t", 13) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 10px 10px 0"
+				if (tmp.t.upgrades["15"].unlocked) s["border-radius"] = "0"
+				return s
+			},
+		},
+		15: {
+			title: "Venom V",
+			description: "Venom boosts Rads gain",
+			currencyLocation() { return player.t.venom },
+			currencyInternalName: "points",
+			currencyDisplayName: "Venom",
+			effect() { return player.t.venom.points.add(1).log2() },
+			effectDisplay() { return `x${format(this.effect())}` },
+			cost() { return new Decimal(1e139) },
+			unlocked() { return hasUpgrade("t", 14) },
+			style() {
+				let s = {}
+				s["border-radius"] = "0 10px 10px 0"
+				//if (tmp.t.upgrades["15"].unlocked) s["border-radius"] = "0"
+				return s
+			},
 		},
 	},
 	milestones: {
 		0: {
 			requirementDescription: "1 Toxins (1)",
-			effectDescription: "Keep a Rads milestone per Toxins milestone, keep a Mutation level per Toxins reset, keep a Rads reset per Toxins reset, unlock one new tabs and unlock Venom.",
+			effectDescription: "Keep a Rads milestone per Toxins milestone, gain x3 Rads resets, unlock one new tabs and unlock Venom.",
 			done() { return player.t.points.gte(1) },
-			style() { return { "border-radius": "5px 5px 5px 5px" } },
+			style() { return { "border-radius": "5px 5px 0 0" } },
 		},
+		1: {
+			requirementDescription: "10 Venom Power amount (2)",
+			effectDescription: "Unlock Venom upgrades.",
+			done() { return getBuyableAmount("t", 13).gte(10) },
+			style() { return { "border-radius": "0" } },
+		},
+		2: {
+			requirementDescription: "2 Toxins (3)",
+			effectDescription: "Keep Rads buyables on reset.",
+			done() { return player.t.points.gte(2) },
+			style() { return { "border-radius": "0 0 5px 5px" } },
+		},
+	},
+	doReset(layer) {
+		if (layers[layer].row == this.row && layer != "t") return
+		let keep = ["points", "milestones", "times", "best", "total"]
+		layerDataReset("t", keep)
 	},
 })
 
 const achData = [
 	{ Name: "The Beginning", Color: "lime", Rows: [1, 2, 3], Unlocked: () => true, Id: "beginning", },
 	{ Name: "Mutation", Color: "purple", Rows: [4], Unlocked: () => player.r.unlocked, Id: "mutation", },
-	{ Name: "Toxicity", Color: "darkgoldenrod", Rows: [5, 6], Unlocked: () => player.t.unlocked, Id: "toxic", },
+	{ Name: "Toxicity", Color: "darkgoldenrod", Rows: [5, 6, 7], Unlocked: () => player.t.unlocked, Id: "toxic", },
 ]
 
 const achNumberData = [
@@ -672,7 +810,7 @@ const achInfo = [
 	{ Done: () => player.r.times >= 25            , Tool: "Get 25 Rads resets"     , Style: "0"             , },
 	{ Done: () => player.r.times >= 100           , Tool: "Get 100 Rads resets"    , Style: "0 10px 10px 0" , },
 
-	// C3 5 - 6
+	// C3 5 - 7
 	{ Done: () => player.t.times >= 1             , Tool: "Get 1 Toxins resets"    , Style: "10px 0 0 0"    , },
 	{ Done: () => player.t.times >= 2             , Tool: "Get 2 Toxins resets"    , Style: "0"             , },
 	{ Done: () => player.t.times >= 3             , Tool: "Get 3 Toxins resets"    , Style: "0"             , },
@@ -681,13 +819,21 @@ const achInfo = [
 	{ Done: () => player.t.times >= 6             , Tool: "Get 6 Toxins resets"    , Style: "0"             , },
 	{ Done: () => player.t.times >= 7             , Tool: "Get 7 Toxins resets"    , Style: "0 10px 0 0"    , },
 
-	{ Done: () => player.t.venom.points.gte(1)    , Tool: "Get 1 Venom"            , Style: "0 0 0 10px"    , },
+	{ Done: () => player.t.venom.points.gte(1)    , Tool: "Get 1 Venom"            , Style: "0"             , },
 	{ Done: () => player.t.venom.points.gte(100)  , Tool: "Get 100 Venom"          , Style: "0"             , },
 	{ Done: () => player.t.venom.points.gte(1e4)  , Tool: "Get 10,000 Venom"       , Style: "0"             , },
 	{ Done: () => player.t.venom.points.gte(1e6)  , Tool: "Get 1,000,000 Venom"    , Style: "0"             , },
 	{ Done: () => player.t.venom.points.gte(1e8)  , Tool: "Get 100,000,000 Venom"  , Style: "0"             , },
 	{ Done: () => player.t.venom.points.gte(1e10) , Tool: "Get 1.00e10 Venom"      , Style: "0"             , },
-	{ Done: () => player.t.venom.points.gte(1e12) , Tool: "Get 1.00e12 Venom"      , Style: "0 0 10px 0"    , },
+	{ Done: () => player.t.venom.points.gte(1e12) , Tool: "Get 1.00e12 Venom"      , Style: "0"             , },
+
+	{ Done: () => player.t.venom.points.gte(1e20) , Tool: "Get 1.00e20 Venom"      , Style: "0 0 0 10px"    , },
+	{ Done: () => player.t.venom.points.gte(1e40) , Tool: "Get 1.00e40 Venom"      , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e60) , Tool: "Get 1.00e60 Venom"      , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e80) , Tool: "Get 1.00e80 Venom"      , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e100), Tool: "Get 1.00e100 Venom"     , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e120), Tool: "Get 1.00e120 Venom"     , Style: "0"             , },
+	{ Done: () => player.t.venom.points.gte(1e140), Tool: "Get 1.00e140 Venom"     , Style: "0 0 10px 0"    , },
 ]
 
 addLayer("a", {
