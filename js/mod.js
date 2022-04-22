@@ -14,7 +14,7 @@ let modInfo = {
 }
 
 let VERSION = {
-	num: "0.006",
+	num: "0.006.1",
 	name: "Chemicals",
 }
 
@@ -28,7 +28,7 @@ function VersionText(v, t) {
 
 let changelog = `<h1>Changelog:</h1><br><br>
 	<h2 style='color:yellow'>Endgame:</h2><br><br>
-	${GlowText("h3", "3", "#666111")} Toxins & ${GlowText("h3", "15", "#6e6e6e")} Lethal Gain & ${GlowText("h3", "15", "#6e6e6e")} Healthy Gain (Last updated v0.006)<br>
+	${GlowText("h3", "3", "#666111")} Toxins & ${GlowText("h3", "15", "#6e6e6e")} Lethal Gain & ${GlowText("h3", "15", "#6e6e6e")} Healthy Gain (Last updated v0.006.1)<br>
 	<br>
 	<span style='color:yellow'>Version number format: v</span><span style='color:red'>A</span>.<span style='color:lime'>B</span>.<span style='color:blue'>C</span><br>
 	- <span style='color:red'>A</span> is for big patches.<br>
@@ -36,14 +36,15 @@ let changelog = `<h1>Changelog:</h1><br><br>
 	- <span style='color:blue'>C</span> is for bug fixes.<br>
 	<br>
 	<h2 style='color:green'>Current version:</h2><br><br>
-	${VersionText("v0.006"  , ["Added two Toxins milestones", "Added Chemicals", "Added five buyables", "Added a Venom upgrades", "Added two Chemical upgrades", "Added four rows of achievements", "Fixed some bugs"])}
+	${VersionText("v0.006.1" , ["Fixed a problematic bug"])}
 	<br><h2 style='color:green'>Older versions:</h2><br><br>
-	${VersionText("v0.005"  , ["Added Venom upgrades", "Added two new Toxins milestones", "Added a Toxins effect", "Added a row of achievements", "Changed Toxins milestone 1", "Changed balancing for venom buyables"])}
-	${VersionText("v0.004"  , ["Added Toxins", "Added Venom", "Added 2 rows of achievments", "Added some features in achievements tab", "Added a Toxins milestone", "Added three Toxins buyables", "Changed all info tabs"])}
-	${VersionText("v0.003.1", ["Changed Rad upgrades into a buyable instead", "Fixed milestone incorrect description", "Added more formula information", "Changed Uranium upgrade IX", "Changed 4th row of achievements to only show when you unlock Rads", "Rebalanced the game after the changes to IX"])}
-	${VersionText("v0.003"  , ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
-	${VersionText("v0.002"  , ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
-	${VersionText("v0.001"  , ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
+	${VersionText("v0.006"   , ["Added two Toxins milestones", "Added Chemicals", "Added five buyables", "Added a Venom upgrades", "Added two Chemical upgrades", "Added four rows of achievements", "Fixed some bugs"])}
+	${VersionText("v0.005"   , ["Added Venom upgrades", "Added two new Toxins milestones", "Added a Toxins effect", "Added a row of achievements", "Changed Toxins milestone 1", "Changed balancing for venom buyables"])}
+	${VersionText("v0.004"   , ["Added Toxins", "Added Venom", "Added 2 rows of achievments", "Added some features in achievements tab", "Added a Toxins milestone", "Added three Toxins buyables", "Changed all info tabs"])}
+	${VersionText("v0.003.1" , ["Changed Rad upgrades into a buyable instead", "Fixed milestone incorrect description", "Added more formula information", "Changed Uranium upgrade IX", "Changed 4th row of achievements to only show when you unlock Rads", "Rebalanced the game after the changes to IX"])}
+	${VersionText("v0.003"   , ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Added a new layer", "Added 25 Rad upgrades", "Added 4 Rad milestones", "Uranium gain now properly works", "Added an info tab for Uranium layer", "Added a past endgame warning", "Changed Uranium symbol U => Ur"])}
+	${VersionText("v0.002"   , ["Added 1 row of Achievements", "Added 5 Uranium upgrades", "Fixed mispelling of thirteen", "Changed Uranium II description to make it more clear"])}
+	${VersionText("v0.001"   , ["Added Uranium", "Added 2 rows of Achievements", "Added 5 Uranium upgrades"])}
 `
 
 let winText = `Congratulations! You have reached the end of The Tree Of Death. Thank you for playing more content will come.`

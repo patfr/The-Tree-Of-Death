@@ -456,16 +456,13 @@ addLayer("r", {
 	doReset(layer) {
 		if (layers[layer].row == this.row) return
 		let keep = []
-		const milestones = [...player.r.milestones]
+		if (hasMilestone("t", 0)) keep.push("milestones")
 		if (hasMilestone("t", 2)) keep.push("buyables")
 		if (hasMilestone("t", 3)) keep.push("times")
 		layerDataReset("r", keep)
 		if (hasMilestone("t", 0)) {
 			const c = player.t.milestones.length
-			for (let i = 0; i < c; i++) {
-				const id = i
-				if (milestones.includes(id)) player.r.milestones.push(id)
-			}
+			player.r.milestones = player.r.milestones.filter( m => parseInt(m) < parseInt(c) )
 		}
 	},
 })
